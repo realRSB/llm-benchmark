@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "description": "Fixed prompts for comparable LLM TTFT benchmarks (short / medium / long).",
+  "prompts": [
+    {
+      "id": "short-01",
+      "category": "short",
+      "label": "Trivia",
+      "messages": [
+        {
+          "role": "system",
+          "content": "You are a helpful assistant. Answer concisely."
+        },
+        {
+          "role": "user",
+          "content": "What is the capital of France? Reply with the city name only."
+        }
+      ]
+    },
+    {
+      "id": "short-02",
+      "category": "short",
+      "label": "Micro reasoning",
+      "messages": [
+        {
+          "role": "system",
+          "content": "You are a helpful assistant. Answer concisely."
+        },
+        {
+          "role": "user",
+          "content": "If a train leaves at noon and travels 60 mph for 30 minutes, how many miles does it cover? Show the arithmetic in one line."
+        }
+      ]
+    },
+    {
+      "id": "medium-01",
+      "category": "medium",
+      "label": "Explain concept",
+      "messages": [
+        {
+          "role": "system",
+          "content": "You are a helpful assistant. Be clear and structured."
+        },
+        {
+          "role": "user",
+          "content": "Explain what time-to-first-token (TTFT) means for a large language API. Cover: (1) what is being measured, (2) why it matters for product UX, (3) one factor that can increase TTFT. Use short paragraphs and bullet points where useful. Aim for roughly 150–250 words."
+        }
+      ]
+    },
+    {
+      "id": "medium-02",
+      "category": "medium",
+      "label": "Summarize instructions",
+      "messages": [
+        {
+          "role": "system",
+          "content": "You are a helpful assistant."
+        },
+        {
+          "role": "user",
+          "content": "You will receive a short checklist. Summarize it into 3 actionable bullets, then add one sentence on what could go wrong if any step is skipped.\n\nChecklist:\n- Validate API keys and rate limits before load tests.\n- Fix the prompt set and model list so runs are comparable.\n- Persist raw timings with timestamps and error fields.\n- Roll up percentiles (p50, p90, p95) per model and prompt class.\n- Expose aggregates via a read-only API for the dashboard."
+        }
+      ]
+    },
+    {
+      "id": "long-01",
+      "category": "long",
+      "label": "Long context Q&A",
+      "messages": [
+        {
+          "role": "system",
+          "content": "You are a helpful assistant. Use the reference text when answering."
+        },
+        {
+          "role": "user",
+          "content": "Reference text (for benchmarking longer prompts):\n\nPublic latency benchmarks help teams compare providers under similar conditions. A credible benchmark fixes the workload: the same prompts, the same concurrency policy, and a declared measurement window. Raw time-to-first-token samples should be stored per request with model id, prompt id, outcome, and timestamps so aggregates can be recomputed later.\n\nAggregates typically include mean, median, and high percentiles because tail latency affects real users even when averages look fine. Variance or spread measures make it easier to spot instability. When publishing results, it helps to disclose geography, time of day, and whether streaming was enabled, since all of these change observed latency.\n\nQuestion: In two short paragraphs, summarize why fixing prompts and storing raw samples matters for trustworthy comparisons, and name two aggregate statistics besides the mean that are useful for tail behavior."
+        }
+      ]
+    },
+    {
+      "id": "long-02",
+      "category": "long",
+      "label": "Structured extraction",
+      "messages": [
+        {
+          "role": "system",
+          "content": "You are a careful analyst. Follow the output format exactly."
+        },
+        {
+          "role": "user",
+          "content": "Below is a synthetic incident log. Extract (1) the incident id, (2) the services mentioned, (3) the timeline as ordered events, (4) the stated root cause if any, (5) three follow-up actions. If something is missing, write \"unknown\" for that field.\n\n---\nIncident report IR-2025-0312 (internal)\nOpened: 2025-03-12T14:05:00Z\nServices: api-gateway, inference-worker, billing-notifier\n\n14:05 — Alert: elevated 5xx on /v1/chat/completions in region us-east-1.\n14:07 — On-call confirms spike in queue depth on inference-worker.\n14:12 — api-gateway scaled out; error rate partially reduced.\n14:20 — DB team reports slow queries on usage_rollup table affecting billing-notifier callbacks.\n14:35 — Hotfix deployed: additional index on usage_rollup (customer_id, bucket_start). Queue depth normalizes.\n14:50 — Customer impact window estimated 12 minutes for chat; billing emails delayed up to 25 minutes.\n\nRoot cause (preliminary): missing index led to slow usage rollups under peak traffic, which increased end-to-end latency and indirectly pressured inference queues.\n\nFollow-ups:\n- Add SLO dashboard panel for p95 TTFT by model.\n- Load test usage rollup writes with production-like cardinality.\n- Document rollback plan for index migrations.\n---\n\nOutput format:\nINCIDENT_ID: ...\nSERVICES: ...\nTIMELINE:\n- ...\nROOT_CAUSE: ...\nFOLLOW_UPS:\n- ...\n- ...\n- ..."
+        }
+      ]
+    }
+  ]
+}
