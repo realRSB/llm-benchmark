@@ -32,7 +32,7 @@ Python backend: FastAPI, HTTP client for provider calls, SQLAlchemy + PostgreSQL
 
 ## Project layout (high level)
 
-- **`app/providers/`** — LLM adapters first; TTS/STT adapters when those phases land.  
+- **`app/providers/llm/`** — LLM adapters (OpenAI, Anthropic, Gemini, shared helpers). Other provider types can live under **`app/providers/`** (e.g. TTS/STT) when you add them.  
 - **`app/prompts/`** — Prompt definitions (e.g. `prompts.json`) loaded by the runner.  
 - **`app/benchmark/`** — Run orchestration, metric math, and shared schemas (`runner`, `metrics`, `schemas`).  
 - **`app/database/`** — Persistence.  

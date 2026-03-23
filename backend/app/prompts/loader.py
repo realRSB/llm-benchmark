@@ -1,4 +1,4 @@
-# Load the prompt definitions from prompts.json
+# Load and validate benchmark prompts from prompts.json (Pydantic models).
 
 from functools import lru_cache
 from pathlib import Path
@@ -29,13 +29,13 @@ class PromptsFile(BaseModel):
 
 @lru_cache
 def load_prompts() -> PromptsFile:
-    # Load and validate prompts.json (cached).
+    # Parsed once per process; edit prompts.json + restart (or clear cache) to reload.
     raw = _PROMPTS_PATH.read_text(encoding="utf-8")
     return PromptsFile.model_validate_json(raw)
 
 
 def list_prompts(*, category: str | None = None) -> list[PromptSpec]:
-    # Return all prompts, optionally filtered by category (short | medium | long).
+    # Filter by short | medium | long, or return everything if category is None.
     file = load_prompts()
     prompts = file.prompts
     if category is None:
