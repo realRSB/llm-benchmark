@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from pydantic import BaseModel
 
@@ -5,11 +7,24 @@ from app.api.routes.leaderboard import router as leaderboard_router
 from app.api.routes.metrics import router as metrics_router
 from app.api.routes.raw_data import router as raw_data_router
 
-from app.benchmark.runner import run_benchmark_once
-from app.benchmark.state import benchmark_state
+from app.benchmark.run_service import execute_benchmark_run
+from app.benchmark.scheduler import create_scheduler, shutdown_scheduler, start_scheduler
+from app.benchmark.schemas import BenchmarkRun
+from app.database import init_db
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    scheduler = create_scheduler()
+    app.state.scheduler = scheduler
+    start_scheduler(scheduler)
+    yield
+    shutdown_scheduler(scheduler)
+
 
 # FastAPI entrypoint. Routers are included from app/api/routes.
-app = FastAPI(title="LLM Benchmark API", version="0.1.0")
+app = FastAPI(title="LLM Benchmark API", version="0.1.0", lifespan=lifespan)
 
 app.include_router(metrics_router)
 app.include_router(leaderboard_router)
@@ -32,8 +47,7 @@ class RunResponse(BaseModel):
 
 @app.post("/run", response_model=RunResponse)
 async def run_benchmark() -> RunResponse:
-    run = await run_benchmark_once()
-    benchmark_state.set_latest(run)
+    run: BenchmarkRun = await execute_benchmark_run()
     return RunResponse(
         ok=True,
         run_id=run.run_id,

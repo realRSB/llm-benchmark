@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
+
+from app.env import load_dotenv_if_needed
+
+load_dotenv_if_needed()
 from typing import Iterable, Optional
 from uuid import uuid4
 

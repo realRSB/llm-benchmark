@@ -3,6 +3,7 @@ from typing import Literal
 from fastapi import APIRouter, Query
 
 from app.benchmark.state import benchmark_state
+from app.database import get_latest_benchmark_run
 
 # Metrics endpoints for rolled-up latency stats (p50/p90/p95, etc.).
 router: APIRouter = APIRouter(prefix="/metrics", tags=["metrics"])
@@ -15,7 +16,7 @@ async def latest_metrics(
     limit: int = Query(default=50, ge=1, le=500),
     category: Literal["short", "medium", "long"] | None = Query(default=None),
 ) -> dict:
-    latest = benchmark_state.get_latest()
+    latest = get_latest_benchmark_run() or benchmark_state.get_latest()
     if latest is None:
         return {
             "ok": True,

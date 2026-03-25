@@ -4,6 +4,7 @@ from statistics import mean
 from fastapi import APIRouter, Query
 
 from app.benchmark.state import benchmark_state
+from app.database import get_latest_benchmark_run
 
 # Leaderboard endpoints show best models/providers based on aggregated metrics.
 router: APIRouter = APIRouter(prefix="/leaderboard", tags=["leaderboard"])
@@ -16,7 +17,7 @@ async def leaderboard(
     limit: int = Query(default=20, ge=1, le=200),
     metric: str = Query(default="p95", description="median|p90|p95|avg"),
 ) -> dict:
-    latest = benchmark_state.get_latest()
+    latest = get_latest_benchmark_run() or benchmark_state.get_latest()
     if latest is None:
         return {
             "ok": True,

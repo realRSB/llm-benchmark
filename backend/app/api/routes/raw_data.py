@@ -3,6 +3,7 @@ from typing import Literal
 from fastapi import APIRouter, Query
 
 from app.benchmark.state import benchmark_state
+from app.database import get_latest_benchmark_run
 
 # Raw-series endpoints are useful for transparency/debugging (per-run TTFT samples, etc.).
 router: APIRouter = APIRouter(prefix="/rawdata", tags=["rawdata"])
@@ -17,7 +18,7 @@ async def raw_data(
     limit: int = Query(default=100, ge=1, le=2000),
     include_output: Literal["0", "1"] = Query(default="0", description="0=no output_text, 1=include output_text"),
 ) -> dict:
-    latest = benchmark_state.get_latest()
+    latest = get_latest_benchmark_run() or benchmark_state.get_latest()
     if latest is None:
         return {
             "ok": True,
@@ -46,5 +47,5 @@ async def raw_data(
         "items": items[:limit],
         "limit": limit,
         "filter": {"model": model, "prompt_id": prompt_id},
-        "note": "in-memory latest run",
+        "note": "latest run from database (or in-memory if no DB row)",
     }

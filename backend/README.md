@@ -28,13 +28,57 @@ The same percentile-style breakdowns can apply to TTS TTFT when that phase ships
 
 ## Stack
 
-Python backend: FastAPI, HTTP client for provider calls, SQLAlchemy + PostgreSQL for time-series style storage, NumPy for aggregates. See `pyproject.toml` for dependencies.
+Python backend: FastAPI, HTTP client for provider calls, SQLAlchemy + PostgreSQL for time-series style storage, NumPy for aggregates, APScheduler for periodic runs. See `pyproject.toml` for dependencies.
+
+## How to run
+
+1. **Install dependencies** (from this `backend/` directory, with [uv](https://github.com/astral-sh/uv)):
+
+   ```bash
+   cd backend
+   uv sync
+   ```
+
+2. **Start PostgreSQL.** Easiest is Docker from this directory (Compose v2: `docker compose`; v1: `docker-compose`):
+
+   ```bash
+   docker compose up -d postgres
+   ```
+
+3. **Configure environment.** Copy the example file and set at least `DATABASE_URL` (and provider API keys for real benchmarks):
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   The app loads `backend/.env` on startup (and when the benchmark runner reads env vars). Use a URL like:
+
+   `postgresql+psycopg2://llm_bench:llm_bench@localhost:5432/llm_bench`
+
+   matching the `docker-compose.yml` defaults.
+
+4. **Run the API** (creates tables on startup, starts the optional scheduler):
+
+   ```bash
+   uv run uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000
+   ```
+
+5. **Trigger a run manually** (optional; scheduled runs also call the same path):
+
+   ```bash
+   curl -X POST http://localhost:8000/run
+   ```
+
+**Scheduler:** With `LLM_BENCH_SCHEDULER_ENABLED=1` (default), the process runs `execute_benchmark_run` on an interval (`LLM_BENCH_SCHEDULE_INTERVAL_SECONDS`, default `300`). Set `LLM_BENCH_SCHEDULER_ENABLED=0` to disable periodic runs while keeping `POST /run`.
+
+**Benchmark targets:** See `app/benchmark/runner.py` — `OPENAI_API_KEY` plus optional `LLM_BENCH_TARGETS` or per-provider `*_BENCH_MODEL` variables.
 
 ## Project layout (high level)
 
 - **`app/providers/llm/`** — LLM adapters (OpenAI, Anthropic, Gemini, shared helpers). Other provider types can live under **`app/providers/`** (e.g. TTS/STT) when you add them.  
 - **`app/prompts/`** — Prompt definitions (e.g. `prompts.json`) loaded by the runner.  
-- **`app/benchmark/`** — Run orchestration, metric math, and shared schemas (`runner`, `metrics`, `schemas`).  
+- **`app/benchmark/`** — Run orchestration, metric math, shared schemas (`runner`, `metrics`, `schemas`), `run_service` (persist + state), and `scheduler` (interval jobs).  
+- **`app/env.py`** — Loads `backend/.env` once before other modules read environment variables.  
 - **`app/database/`** — Persistence.  
 - **`app/api/`** — FastAPI app (`main.py`) and **`app/api/routes/`** — public endpoints (e.g. leaderboard, rolled-up metrics, raw series).  
 - **`app/log_config.py`** — Central logging configuration.
