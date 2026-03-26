@@ -81,3 +81,32 @@ class TTFTMetricRow(Base):
             name="uq_ttft_metric_prompt",
         ),
     )
+
+
+class TotalLatencyMetricRow(Base):
+    __tablename__ = "latency_metrics"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[str] = mapped_column(String(64), ForeignKey("benchmark_runs.run_id"), index=True)
+
+    provider: Mapped[str] = mapped_column(String(64), index=True)
+    model: Mapped[str] = mapped_column(String(256), index=True)
+    prompt_id: Mapped[str] = mapped_column(String(64), index=True)
+    prompt_category: Mapped[str] = mapped_column(String(16), index=True)
+
+    n: Mapped[int] = mapped_column(Integer)
+    avg_ms: Mapped[float] = mapped_column(Float)
+    median_ms: Mapped[float] = mapped_column(Float)
+    p90_ms: Mapped[float] = mapped_column(Float)
+    p95_ms: Mapped[float] = mapped_column(Float)
+    variance_ms: Mapped[float] = mapped_column(Float)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "run_id",
+            "provider",
+            "model",
+            "prompt_id",
+            name="uq_latency_metric_prompt",
+        ),
+    )

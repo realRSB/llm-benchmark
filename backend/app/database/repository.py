@@ -8,12 +8,18 @@ from sqlalchemy.orm import Session
 from app.benchmark.schemas import (
     BenchmarkRun,
     BenchmarkTarget,
+    LatencyStats,
     MetricRow,
     TimingSample,
     TTFTStats,
 )
 from app.database.db import SessionLocal
-from app.database.models import BenchmarkRunRow, TTFTMetricRow, TimingSampleRow
+from app.database.models import (
+    BenchmarkRunRow,
+    TTFTMetricRow,
+    TimingSampleRow,
+    TotalLatencyMetricRow,
+)
 
 
 def save_benchmark_run(run: BenchmarkRun) -> None:
@@ -32,6 +38,9 @@ def _save_benchmark_run_session(session: Session, run: BenchmarkRun) -> None:
             delete(TimingSampleRow).where(TimingSampleRow.run_id == run.run_id)
         )
         session.execute(delete(TTFTMetricRow).where(TTFTMetricRow.run_id == run.run_id))
+        session.execute(
+            delete(TotalLatencyMetricRow).where(TotalLatencyMetricRow.run_id == run.run_id)
+        )
         session.execute(
             delete(BenchmarkRunRow).where(BenchmarkRunRow.run_id == run.run_id)
         )
@@ -78,6 +87,21 @@ def _save_benchmark_run_session(session: Session, run: BenchmarkRun) -> None:
                 p90_ms=m.ttft.p90_ms,
                 p95_ms=m.ttft.p95_ms,
                 variance_ms=m.ttft.variance_ms,
+            )
+        )
+        session.add(
+            TotalLatencyMetricRow(
+                run_id=run.run_id,
+                provider=m.provider,
+                model=m.model,
+                prompt_id=m.prompt_id,
+                prompt_category=m.prompt_category,
+                n=m.total_latency.n,
+                avg_ms=m.total_latency.avg_ms,
+                median_ms=m.total_latency.median_ms,
+                p90_ms=m.total_latency.p90_ms,
+                p95_ms=m.total_latency.p95_ms,
+                variance_ms=m.total_latency.variance_ms,
             )
         )
 
@@ -127,6 +151,21 @@ def _benchmark_run_from_row(session: Session, row: BenchmarkRunRow) -> Benchmark
             TTFTMetricRow.model.asc(),
         )
     ).all()
+
+    latency_rows = session.scalars(
+        select(TotalLatencyMetricRow)
+        .where(TotalLatencyMetricRow.run_id == row.run_id)
+        .order_by(
+            TotalLatencyMetricRow.prompt_category.asc(),
+            TotalLatencyMetricRow.prompt_id.asc(),
+            TotalLatencyMetricRow.provider.asc(),
+            TotalLatencyMetricRow.model.asc(),
+        )
+    ).all()
+    latency_by_key = {
+        (r.provider, r.model, r.prompt_id, r.prompt_category): r for r in latency_rows
+    }
+
     metrics = [
         MetricRow(
             provider=r.provider,
@@ -140,6 +179,26 @@ def _benchmark_run_from_row(session: Session, row: BenchmarkRunRow) -> Benchmark
                 p90_ms=r.p90_ms,
                 p95_ms=r.p95_ms,
                 variance_ms=r.variance_ms,
+            ),
+            total_latency=LatencyStats(
+                n=latency_by_key[(r.provider, r.model, r.prompt_id, r.prompt_category)].n
+                if (r.provider, r.model, r.prompt_id, r.prompt_category) in latency_by_key
+                else 0,
+                avg_ms=latency_by_key[(r.provider, r.model, r.prompt_id, r.prompt_category)].avg_ms
+                if (r.provider, r.model, r.prompt_id, r.prompt_category) in latency_by_key
+                else -1.0,
+                median_ms=latency_by_key[(r.provider, r.model, r.prompt_id, r.prompt_category)].median_ms
+                if (r.provider, r.model, r.prompt_id, r.prompt_category) in latency_by_key
+                else -1.0,
+                p90_ms=latency_by_key[(r.provider, r.model, r.prompt_id, r.prompt_category)].p90_ms
+                if (r.provider, r.model, r.prompt_id, r.prompt_category) in latency_by_key
+                else -1.0,
+                p95_ms=latency_by_key[(r.provider, r.model, r.prompt_id, r.prompt_category)].p95_ms
+                if (r.provider, r.model, r.prompt_id, r.prompt_category) in latency_by_key
+                else -1.0,
+                variance_ms=latency_by_key[(r.provider, r.model, r.prompt_id, r.prompt_category)].variance_ms
+                if (r.provider, r.model, r.prompt_id, r.prompt_category) in latency_by_key
+                else -1.0,
             ),
         )
         for r in metric_rows

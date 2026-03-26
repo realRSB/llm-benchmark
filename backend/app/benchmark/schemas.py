@@ -40,6 +40,16 @@ class TTFTStats(BaseModel):
     variance_ms: float
 
 
+class LatencyStats(BaseModel):
+    n: int = Field(..., description="Number of successful samples used for the stat")
+
+    avg_ms: float
+    median_ms: float
+    p90_ms: float
+    p95_ms: float
+    variance_ms: float
+
+
 class MetricRow(BaseModel):
     provider: str
     model: str
@@ -47,6 +57,7 @@ class MetricRow(BaseModel):
     prompt_category: Literal["short", "medium", "long"]
 
     ttft: TTFTStats
+    total_latency: LatencyStats
 
 
 class BenchmarkRun(BaseModel):

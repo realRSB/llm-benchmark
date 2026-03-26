@@ -26,7 +26,7 @@ The same percentile-style breakdowns can apply to TTS TTFT when that phase ships
 3. Persist raw timings and roll up aggregates for charts and tables.  
 4. Serve results from this backend and visualize them in a separate frontend.
 
-## Stack
+## Backend Stack
 
 Python backend: FastAPI, HTTP client for provider calls, SQLAlchemy + PostgreSQL for time-series style storage, NumPy for aggregates, APScheduler for periodic runs. See `pyproject.toml` for dependencies.
 

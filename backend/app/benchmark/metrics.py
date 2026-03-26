@@ -5,7 +5,7 @@ from typing import Iterable
 
 import numpy as np
 
-from app.benchmark.schemas import MetricRow, TimingSample, TTFTStats
+from app.benchmark.schemas import LatencyStats, MetricRow, TimingSample, TTFTStats
 
 
 def _ttft_stats(values_ms: list[float]) -> TTFTStats:
@@ -32,9 +32,33 @@ def _ttft_stats(values_ms: list[float]) -> TTFTStats:
     )
 
 
+def _latency_stats(values_ms: list[float]) -> LatencyStats:
+    arr = np.asarray(values_ms, dtype=float)
+    n = int(arr.shape[0])
+    if n == 0:
+        return LatencyStats(
+            n=0,
+            avg_ms=-1.0,
+            median_ms=-1.0,
+            p90_ms=-1.0,
+            p95_ms=-1.0,
+            variance_ms=-1.0,
+        )
+
+    return LatencyStats(
+        n=n,
+        avg_ms=float(np.mean(arr)),
+        median_ms=float(np.median(arr)),
+        p90_ms=float(np.percentile(arr, 90)),
+        p95_ms=float(np.percentile(arr, 95)),
+        variance_ms=float(np.var(arr, ddof=0)),
+    )
+
+
 def aggregate_ttft_metrics(samples: Iterable[TimingSample]) -> list[MetricRow]:
     # Group by (provider, model, prompt_id, prompt_category).
-    grouped: dict[tuple[str, str, str, str], list[float]] = defaultdict(list)
+    grouped_ttft: dict[tuple[str, str, str, str], list[float]] = defaultdict(list)
+    grouped_total: dict[tuple[str, str, str, str], list[float]] = defaultdict(list)
 
     for s in samples:
         if not s.success:
@@ -43,18 +67,23 @@ def aggregate_ttft_metrics(samples: Iterable[TimingSample]) -> list[MetricRow]:
         if s.ttft_ms < 0:
             continue
         key = (s.provider, s.model, s.prompt_id, s.prompt_category)
-        grouped[key].append(s.ttft_ms)
+        grouped_ttft[key].append(s.ttft_ms)
+        # Providers may use -1.0 for "not measured" here too; treat the same way.
+        if s.total_latency_ms >= 0:
+            grouped_total[key].append(s.total_latency_ms)
 
     rows: list[MetricRow] = []
-    for (provider, model, prompt_id, prompt_category), values in grouped.items():
-        stats = _ttft_stats(values)
+    for (provider, model, prompt_id, prompt_category), ttft_values in grouped_ttft.items():
+        ttft_stats = _ttft_stats(ttft_values)
+        total_stats = _latency_stats(grouped_total.get((provider, model, prompt_id, prompt_category), []))
         rows.append(
             MetricRow(
                 provider=provider,
                 model=model,
                 prompt_id=prompt_id,
                 prompt_category=prompt_category,  # type: ignore[arg-type]
-                ttft=stats,
+                ttft=ttft_stats,
+                total_latency=total_stats,
             )
         )
 

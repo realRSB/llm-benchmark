@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.api.routes.leaderboard import router as leaderboard_router
@@ -25,6 +26,17 @@ async def lifespan(app: FastAPI):
 
 # FastAPI entrypoint. Routers are included from app/api/routes.
 app = FastAPI(title="LLM Benchmark API", version="0.1.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(metrics_router)
 app.include_router(leaderboard_router)
