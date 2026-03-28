@@ -43,7 +43,7 @@ def _parse_targets_from_env() -> list[BenchmarkTarget]:
     targets: list[BenchmarkTarget] = []
 
     if targets_raw:
-        # Accept comma/semicolon separated: openai:model,anthropic:model;gemini:model
+        # Accept comma/semicolon separated: openai:model,anthropic:model
         parts = [p.strip() for p in targets_raw.replace(";", ",").split(",") if p.strip()]
         for part in parts:
             if ":" not in part:
@@ -63,10 +63,6 @@ def _parse_targets_from_env() -> list[BenchmarkTarget]:
     anthropic_bench_model = os.getenv("ANTHROPIC_BENCH_MODEL", "").strip()
     if anthropic_bench_model and os.getenv("ANTHROPIC_API_KEY"):
         targets.append(BenchmarkTarget(provider="anthropic", model=anthropic_bench_model))
-
-    gemini_bench_model = os.getenv("GEMINI_BENCH_MODEL", "").strip()
-    if gemini_bench_model and os.getenv("GEMINI_API_KEY"):
-        targets.append(BenchmarkTarget(provider="gemini", model=gemini_bench_model))
 
     return targets
 

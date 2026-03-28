@@ -11,7 +11,7 @@ from app.api.routes.raw_data import router as raw_data_router
 from app.benchmark.run_service import execute_benchmark_run
 from app.benchmark.scheduler import create_scheduler, shutdown_scheduler, start_scheduler
 from app.benchmark.schemas import BenchmarkRun
-from app.database import init_db
+from app.database import get_total_benchmark_call_counts, init_db
 
 
 @asynccontextmanager
@@ -47,6 +47,19 @@ app.include_router(raw_data_router)
 async def health() -> dict:
     # Simple liveness endpoint for the frontend / uptime checks.
     return {"status": "ok"}
+
+
+@app.get("/stats/benchmark-calls", tags=["stats"])
+async def benchmark_calls_totals() -> dict:
+    # Defined on the app root so this route is always present with main:app (avoids stale-router 404s).
+    items, n_runs = get_total_benchmark_call_counts()
+    total_calls = sum(int(i["benchmark_calls"]) for i in items)
+    return {
+        "ok": True,
+        "n_runs": n_runs,
+        "total_benchmark_calls": total_calls,
+        "items": items,
+    }
 
 
 class RunResponse(BaseModel):

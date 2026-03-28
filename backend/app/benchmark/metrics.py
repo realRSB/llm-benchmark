@@ -7,9 +7,15 @@ import numpy as np
 
 from app.benchmark.schemas import LatencyStats, MetricRow, TimingSample, TTFTStats
 
+# Roll-up rules:
+# - One TimingSample contributes at most once per (provider, model, prompt_id, category).
+# - Only successful calls with both ttft_ms and total_latency_ms measured (>= 0) are included
+#   so TTFT and total_latency stats always share the same n per bucket.
+# - avg / median / p90 / p95 use numpy; variance is population variance (ddof=0), same units as ms².
+
 
 def _ttft_stats(values_ms: list[float]) -> TTFTStats:
-    # Assumes values_ms already filtered to successful samples.
+    # Assumes values_ms already filtered to successful samples with valid timings.
     arr = np.asarray(values_ms, dtype=float)
     n = int(arr.shape[0])
     if n == 0:
@@ -63,14 +69,12 @@ def aggregate_ttft_metrics(samples: Iterable[TimingSample]) -> list[MetricRow]:
     for s in samples:
         if not s.success:
             continue
-        # Providers use -1.0 for "ttft not measured"
-        if s.ttft_ms < 0:
+        # Providers use -1.0 for "not measured"; keep TTFT and total_latency lists aligned.
+        if s.ttft_ms < 0 or s.total_latency_ms < 0:
             continue
         key = (s.provider, s.model, s.prompt_id, s.prompt_category)
         grouped_ttft[key].append(s.ttft_ms)
-        # Providers may use -1.0 for "not measured" here too; treat the same way.
-        if s.total_latency_ms >= 0:
-            grouped_total[key].append(s.total_latency_ms)
+        grouped_total[key].append(s.total_latency_ms)
 
     rows: list[MetricRow] = []
     for (provider, model, prompt_id, prompt_category), ttft_values in grouped_ttft.items():

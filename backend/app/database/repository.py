@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from sqlalchemy import delete, select
+from collections import defaultdict
+from typing import Any
+
+from sqlalchemy import Integer, cast, delete, func, select
 from sqlalchemy.orm import Session
 
 from app.benchmark.schemas import (
@@ -13,6 +16,7 @@ from app.benchmark.schemas import (
     TimingSample,
     TTFTStats,
 )
+from app.benchmark.ttft_scores import normalize_ttft_metric_key, ttft_score_ms
 from app.database.db import SessionLocal
 from app.database.models import (
     BenchmarkRunRow,
@@ -212,3 +216,118 @@ def _benchmark_run_from_row(session: Session, row: BenchmarkRunRow) -> Benchmark
         samples=samples,
         metrics=metrics,
     )
+
+
+def get_total_benchmark_call_counts() -> tuple[list[dict[str, int | str]], int]:
+    # All rows in timing_samples (every prompt × model call across all saved runs).
+    with SessionLocal() as session:
+        n_runs = session.scalar(select(func.count()).select_from(BenchmarkRunRow))
+        n_runs = int(n_runs or 0)
+        stmt = (
+            select(
+                TimingSampleRow.provider,
+                TimingSampleRow.model,
+                func.count().label("benchmark_calls"),
+                func.sum(cast(TimingSampleRow.success, Integer)).label("successful"),
+            )
+            .group_by(TimingSampleRow.provider, TimingSampleRow.model)
+            .order_by(TimingSampleRow.provider.asc(), TimingSampleRow.model.asc())
+        )
+        rows = session.execute(stmt).all()
+
+    items: list[dict[str, int | str]] = []
+    for provider, model, calls, succ in rows:
+        calls_i = int(calls or 0)
+        succ_i = int(succ or 0)
+        items.append(
+            {
+                "provider": provider,
+                "model": model,
+                "benchmark_calls": calls_i,
+                "successful": succ_i,
+                "failed": max(calls_i - succ_i, 0),
+            }
+        )
+    return items, n_runs
+
+
+def get_ttft_history_series(
+    *,
+    limit_runs: int,
+    metric_key: str,
+    provider: str | None = None,
+    model: str | None = None,
+) -> dict[str, Any]:
+    """Per (provider, model) time series of TTFT scores across saved runs (oldest → newest)."""
+    mk = normalize_ttft_metric_key(metric_key)
+    prov_f = provider.strip() if provider else None
+    mod_f = model.strip() if model else None
+
+    with SessionLocal() as session:
+        run_rows = session.scalars(
+            select(BenchmarkRunRow)
+            .order_by(BenchmarkRunRow.finished_at.desc())
+            .limit(limit_runs)
+        ).all()
+
+        if not run_rows:
+            return {
+                "metric": mk,
+                "limit_runs": limit_runs,
+                "n_runs_loaded": 0,
+                "series": [],
+            }
+
+        runs_chrono = list(reversed(run_rows))
+        run_ids = [r.run_id for r in run_rows]
+        finished_map = {r.run_id: r.finished_at for r in run_rows}
+
+        sample_rows = session.scalars(
+            select(TimingSampleRow).where(TimingSampleRow.run_id.in_(run_ids))
+        ).all()
+
+    bucket: dict[tuple[str, str, str], list[float]] = defaultdict(list)
+    for s in sample_rows:
+        if not s.success or s.ttft_ms < 0:
+            continue
+        if prov_f is not None and s.provider != prov_f:
+            continue
+        if mod_f is not None and s.model != mod_f:
+            continue
+        bucket[(s.run_id, s.provider, s.model)].append(s.ttft_ms)
+
+    series_map: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for run in runs_chrono:
+        rid = run.run_id
+        ft = finished_map[rid]
+        for (r2, prov, mod), vals in bucket.items():
+            if r2 != rid:
+                continue
+            score = ttft_score_ms(vals, mk)
+            if score < 0:
+                continue
+            series_map[(prov, mod)].append(
+                {
+                    "run_id": rid,
+                    "finished_at": ft.isoformat(),
+                    "score_ms": round(score, 3),
+                    "n_samples": len(vals),
+                }
+            )
+
+    series: list[dict[str, Any]] = []
+    for (prov, mod) in sorted(series_map.keys()):
+        series.append(
+            {
+                "provider": prov,
+                "model": mod,
+                "points": series_map[(prov, mod)],
+            }
+        )
+
+    return {
+        "metric": mk,
+        "limit_runs": limit_runs,
+        "n_runs_loaded": len(run_rows),
+        "series": series,
+    }

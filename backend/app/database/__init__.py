@@ -8,7 +8,12 @@ from app.database.db import (
     get_session_factory,
     init_db,
 )
-from app.database.repository import get_latest_benchmark_run, save_benchmark_run
+from app.database.repository import (
+    get_latest_benchmark_run,
+    get_total_benchmark_call_counts,
+    get_ttft_history_series,
+    save_benchmark_run,
+)
 
 __all__ = [
     "SessionLocal",
@@ -18,6 +23,8 @@ __all__ = [
     "get_session_factory",
     "init_db",
     "get_latest_benchmark_run",
+    "get_total_benchmark_call_counts",
+    "get_ttft_history_series",
     "save_benchmark_run",
 ]
 

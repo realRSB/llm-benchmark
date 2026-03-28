@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 
 class BenchmarkTarget(BaseModel):
-    # provider = openai | anthropic | gemini
+    # provider = openai | anthropic
     provider: str
     model: str
 
@@ -31,23 +31,23 @@ class TimingSample(BaseModel):
 
 
 class TTFTStats(BaseModel):
-    n: int = Field(..., description="Number of successful samples used for the stat")
+    n: int = Field(..., description="Successful samples with valid TTFT+total latency in this bucket")
 
     avg_ms: float
     median_ms: float
     p90_ms: float
     p95_ms: float
-    variance_ms: float
+    variance_ms: float = Field(..., description="Population variance of latencies in ms² (ddof=0)")
 
 
 class LatencyStats(BaseModel):
-    n: int = Field(..., description="Number of successful samples used for the stat")
+    n: int = Field(..., description="Same sample count as paired TTFTStats for this row")
 
     avg_ms: float
     median_ms: float
     p90_ms: float
     p95_ms: float
-    variance_ms: float
+    variance_ms: float = Field(..., description="Population variance of latencies in ms² (ddof=0)")
 
 
 class MetricRow(BaseModel):

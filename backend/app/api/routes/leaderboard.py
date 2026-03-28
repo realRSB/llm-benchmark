@@ -1,9 +1,9 @@
 from collections import defaultdict
-from statistics import mean
 
 from fastapi import APIRouter, Query
 
 from app.benchmark.state import benchmark_state
+from app.benchmark.ttft_scores import normalize_ttft_metric_key, ttft_score_ms
 from app.database import get_latest_benchmark_run
 
 # Leaderboard endpoints show best models/providers based on aggregated metrics.
@@ -15,7 +15,10 @@ __all__ = ["router"]
 @router.get("/")
 async def leaderboard(
     limit: int = Query(default=20, ge=1, le=200),
-    metric: str = Query(default="p95", description="median|p90|p95|avg"),
+    metric: str = Query(
+        default="p95",
+        description="avg|median|p90|p95 — computed across all prompt TTFTs for each model in the latest run",
+    ),
 ) -> dict:
     latest = get_latest_benchmark_run() or benchmark_state.get_latest()
     if latest is None:
@@ -26,33 +29,28 @@ async def leaderboard(
             "note": "No benchmark run yet. Call POST /run first.",
         }
 
-    metric_key = metric.strip().lower()
-    if metric_key in {"avg", "mean"}:
-        selector = lambda s: s.avg_ms
-    elif metric_key in {"median", "p50", "p_50"}:
-        selector = lambda s: s.median_ms
-    elif metric_key in {"p90"}:
-        selector = lambda s: s.p90_ms
-    else:
-        # default p95
-        selector = lambda s: s.p95_ms
+    metric_key = normalize_ttft_metric_key(metric)
 
-    # Aggregate per (provider, model) by averaging the selected per-prompt metric.
+    # Use raw per-call TTFTs so avg / median / p90 / p95 differ across prompts (rolled-up
+    # MetricRow has n=1 per prompt, so averaging those stats made every selector identical).
     buckets: dict[tuple[str, str], list[float]] = defaultdict(list)
-    for row in latest.metrics:
-        if row.ttft.n <= 0:
+    for s in latest.samples:
+        if not s.success or s.ttft_ms < 0:
             continue
-        buckets[(row.provider, row.model)].append(selector(row.ttft))
+        buckets[(s.provider, s.model)].append(s.ttft_ms)
 
     scored: list[dict] = []
     for (provider, model), values in buckets.items():
         if not values:
             continue
+        score = ttft_score_ms(values, metric_key)
+        if score < 0:
+            continue
         scored.append(
             {
                 "provider": provider,
                 "model": model,
-                "score_ms": float(mean(values)),
+                "score_ms": score,
                 "n_prompts": len(values),
             }
         )

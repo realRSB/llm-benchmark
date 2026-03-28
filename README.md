@@ -73,14 +73,17 @@ Python backend: FastAPI, HTTP client for provider calls, SQLAlchemy + PostgreSQL
 
 **Benchmark targets:** See `app/benchmark/runner.py` — `OPENAI_API_KEY` plus optional `LLM_BENCH_TARGETS` or per-provider `*_BENCH_MODEL` variables.
 
+**API — latest vs history:** `GET /metrics/latest` and `GET /leaderboard/` use the **most recent** run only. **`GET /metrics/history`** returns TTFT scores **per model over many saved runs** (query params: `limit_runs`, `metric`, optional `provider` / `model`). The Streamlit app charts this under **TTFT over time**.
+
 ## Project layout (high level)
 
-- **`app/providers/llm/`** — LLM adapters (OpenAI, Anthropic, Gemini, shared helpers). Other provider types can live under **`app/providers/`** (e.g. TTS/STT) when you add them.  
+- **`app/providers/llm/`** — LLM adapters (OpenAI, Anthropic, shared helpers). Other provider types can live under **`app/providers/`** (e.g. TTS/STT) when you add them.  
 - **`app/prompts/`** — Prompt definitions (e.g. `prompts.json`) loaded by the runner.  
-- **`app/benchmark/`** — Run orchestration, metric math, shared schemas (`runner`, `metrics`, `schemas`), `run_service` (persist + state), and `scheduler` (interval jobs).  
+- **`app/benchmark/`** — Run orchestration, metric math, shared schemas (`runner`, `metrics`, `ttft_scores`, `schemas`), `run_service` (persist + state), and `scheduler` (interval jobs).  
 - **`app/env.py`** — Loads `backend/.env` once before other modules read environment variables.  
 - **`app/database/`** — Persistence.  
-- **`app/api/`** — FastAPI app (`main.py`) and **`app/api/routes/`** — public endpoints (e.g. leaderboard, rolled-up metrics, raw series).  
+- **`app/api/`** — FastAPI app (`main.py`) and **`app/api/routes/`** — public endpoints (e.g. leaderboard, rolled-up metrics, raw series, **`/metrics/history`**).  
+- **`frontend/`** — Streamlit dashboard (`streamlit run app.py`).  
 - **`app/log_config.py`** — Central logging configuration.
 
 This README will evolve as the LLM slice solidifies and TTS/STT are added.

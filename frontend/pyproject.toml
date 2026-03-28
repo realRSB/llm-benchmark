@@ -1,0 +1,13 @@
+[project]
+name = "llm-benchmark-frontend"
+version = "0.1.0"
+description = "Streamlit dashboard for the LLM Benchmark API"
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=2.2.0",
+    "requests>=2.32.0",
+    "streamlit>=1.40.0",
+]
+
+[tool.uv]
+package = false
