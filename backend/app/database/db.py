@@ -34,8 +34,18 @@ def get_database_url() -> str:
     return url
 
 
-def _create_engine():
-    return create_engine(get_database_url())
+def create_engine_from_url(url: str) -> Engine:
+    connect_args: dict[str, str] = {}
+    sslmode_env = os.getenv("DATABASE_SSLMODE", "").strip()
+    if sslmode_env:
+        connect_args["sslmode"] = sslmode_env
+    elif "supabase.co" in url and "sslmode" not in url.lower():
+        connect_args["sslmode"] = "require"
+    return create_engine(url, connect_args=connect_args)
+
+
+def _create_engine() -> Engine:
+    return create_engine_from_url(get_database_url())
 
 
 def get_engine() -> Engine:
